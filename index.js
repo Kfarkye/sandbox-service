@@ -30,9 +30,12 @@ app.post('/api/sandbox/create', async (req, res) => {
       teamId,
       projectId,
       timeout: 300000,
-      ports: [3000, 5173, 8080],
+      ports: [5173, 3000],
       runtime: 'node22',
       resources: { vcpus: 4 }
+    }).catch(err => {
+      console.error('Vercel Sandbox API Error:', err);
+      throw new Error(`Vercel Sandbox API error: ${err.message || err}`);
     });
 
     console.log('Sandbox created:', sandbox.id);
@@ -64,7 +67,7 @@ app.post('/api/sandbox/create', async (req, res) => {
 
     await new Promise(resolve => setTimeout(resolve, 5000));
 
-    const previewUrl = sandbox.domain(5173) || sandbox.domain(3000) || sandbox.domain(8080);
+    const previewUrl = sandbox.domain(5173) || sandbox.domain(3000);
 
     res.json({
       success: true,
@@ -82,3 +85,4 @@ const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Sandbox service running on port ${PORT}`);
 });
+
