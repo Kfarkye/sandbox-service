@@ -42,10 +42,22 @@ app.post('/api/sandbox/create', async (req, res) => {
 
     // Detect and remove common project directory prefix
     const filePaths = Object.keys(files);
-    const firstPath = filePaths[0] || '';
-    const projectDir = firstPath.split('/')[0];
     
-    console.log(`Detected project directory: ${projectDir}`);
+    // Find common prefix by checking if all paths start with the same directory
+    let projectDir = '';
+    if (filePaths.length > 0) {
+      const firstPath = filePaths[0];
+      const firstSegment = firstPath.split('/')[0];
+      
+      // Check if ALL files start with this directory prefix
+      const allHavePrefix = filePaths.every(path => path.startsWith(`${firstSegment}/`));
+      if (allHavePrefix) {
+        projectDir = firstSegment;
+        console.log(`Detected project directory prefix: "${projectDir}"`);
+      } else {
+        console.log('No common directory prefix detected');
+      }
+    }
 
     // Add/update vite.config to allow all hosts
     const viteConfigKey = Object.keys(files).find(k => k.includes('vite.config'));
@@ -63,10 +75,14 @@ app.post('/api/sandbox/create', async (req, res) => {
     }
 
     const fileEntries = Object.entries(files).map(([path, content]) => {
-      // Remove project directory prefix (e.g., "lane-kanban-subtasks/")
-      const cleanPath = path.startsWith(`${projectDir}/`) 
-        ? path.substring(projectDir.length + 1) 
-        : path;
+      // Remove project directory prefix if detected
+      let cleanPath = path;
+      if (projectDir && path.startsWith(`${projectDir}/`)) {
+        cleanPath = path.substring(projectDir.length + 1);
+        console.log(`Stripped prefix: "${path}" -> "${cleanPath}"`);
+      } else {
+        console.log(`No prefix to strip: "${path}"`);
+      }
       
       const fileContent = String(content || '');
       const buffer = Buffer.from(fileContent, 'utf-8');
@@ -91,14 +107,27 @@ app.post('/api/sandbox/create', async (req, res) => {
     }
 
     console.log('Starting dev server...');
-    sandbox.runCommand({
+    const devProcess = sandbox.runCommand({
       cmd: 'sh',
       args: ['-c', 'npm run dev -- --host 0.0.0.0'],
     });
 
-    await new Promise(resolve => setTimeout(resolve, 5000));
+    // Wait longer and check if server is responding
+    console.log('Waiting for dev server to start...');
+    await new Promise(resolve => setTimeout(resolve, 15000));
 
     const previewUrl = sandbox.domain(5173) || sandbox.domain(3000);
+    
+    // Verify the server is running with a health check
+    try {
+      const healthCheck = await fetch(`https://${previewUrl}`, { 
+        method: 'HEAD',
+        signal: AbortSignal.timeout(5000)
+      });
+      console.log('Health check response:', healthCheck.status);
+    } catch (healthError) {
+      console.warn('Health check failed (this may be ok if app is still loading):', healthError.message);
+    }
 
     res.json({
       success: true,
@@ -116,3 +145,4 @@ const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Sandbox service running on port ${PORT}`);
 });
+
