@@ -3,7 +3,11 @@ import cors from 'cors';
 import { Sandbox } from '@vercel/sandbox';
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json({ limit: '10mb' }));
 
 app.post('/api/sandbox/create', async (req, res) => {
@@ -47,38 +51,6 @@ app.post('/api/sandbox/create', async (req, res) => {
       cmd: 'sh',
       args: ['-c', `cd ${projectDir} && npm install`],
     });
-    
-    if (installResult.exitCode !== 0) {
-      throw new Error(`npm install failed: ${installResult.stderr}`);
-    }
-
-    console.log('Starting dev server...');
-    sandbox.runCommand({
-      cmd: 'sh',
-      args: ['-c', `cd ${projectDir} && npm run dev`],
-    });
-
-    await new Promise(resolve => setTimeout(resolve, 5000));
-
-    const previewUrl = sandbox.domain(5173) || sandbox.domain(3000) || sandbox.domain(8080);
-
-    res.json({
-      success: true,
-      previewUrl,
-      sandboxId: sandbox.id,
-      output: installResult.stdout,
-    });
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`Sandbox service running on port ${PORT}`);
-});
-
     
     if (installResult.exitCode !== 0) {
       throw new Error(`npm install failed: ${installResult.stderr}`);
