@@ -40,11 +40,16 @@ app.post('/api/sandbox/create', async (req, res) => {
 
     console.log('Sandbox created:', sandbox.id);
 
-    const fileEntries = Object.entries(files).map(([path, content]) => ({
-      path: `/${path}`,
-      content: content,
-    }));
+    const fileEntries = Object.entries(files).map(([path, content]) => {
+      const fileContent = String(content || '');
+      console.log(`File: ${path}, Size: ${fileContent.length} bytes`);
+      return {
+        path: `/${path}`,
+        content: fileContent,
+      };
+    });
     
+    console.log(`Writing ${fileEntries.length} files to sandbox...`);
     await sandbox.writeFiles(fileEntries);
 
     const projectDir = Object.keys(files)[0]?.split('/')[0] || '';
@@ -85,4 +90,3 @@ const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Sandbox service running on port ${PORT}`);
 });
-
