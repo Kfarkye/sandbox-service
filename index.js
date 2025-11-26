@@ -12,14 +12,19 @@ app.post('/api/sandbox/create', async (req, res) => {
     
     console.log('Creating Vercel Sandbox...');
     
-    // Check for required token
+    // Check for required credentials
     const token = process.env.SANDBOX_VERCEL_TOKEN;
-    if (!token) {
-      throw new Error('SANDBOX_VERCEL_TOKEN environment variable is required');
+    const teamId = process.env.SANDBOX_VERCEL_TEAM_ID;
+    const projectId = process.env.SANDBOX_VERCEL_PROJECT_ID;
+    
+    if (!token || !teamId || !projectId) {
+      throw new Error('Missing environment variables: SANDBOX_VERCEL_TOKEN, SANDBOX_VERCEL_TEAM_ID, and SANDBOX_VERCEL_PROJECT_ID are required');
     }
     
     const sandbox = await Sandbox.create({
       token,
+      teamId,
+      projectId,
       timeout: 300000,
       ports: [3000, 5173, 8080],
       runtime: 'node22',
@@ -42,6 +47,38 @@ app.post('/api/sandbox/create', async (req, res) => {
       cmd: 'sh',
       args: ['-c', `cd ${projectDir} && npm install`],
     });
+    
+    if (installResult.exitCode !== 0) {
+      throw new Error(`npm install failed: ${installResult.stderr}`);
+    }
+
+    console.log('Starting dev server...');
+    sandbox.runCommand({
+      cmd: 'sh',
+      args: ['-c', `cd ${projectDir} && npm run dev`],
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 5000));
+
+    const previewUrl = sandbox.domain(5173) || sandbox.domain(3000) || sandbox.domain(8080);
+
+    res.json({
+      success: true,
+      previewUrl,
+      sandboxId: sandbox.id,
+      output: installResult.stdout,
+    });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => {
+  console.log(`Sandbox service running on port ${PORT}`);
+});
+
     
     if (installResult.exitCode !== 0) {
       throw new Error(`npm install failed: ${installResult.stderr}`);
