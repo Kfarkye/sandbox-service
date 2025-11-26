@@ -42,10 +42,11 @@ app.post('/api/sandbox/create', async (req, res) => {
 
     const fileEntries = Object.entries(files).map(([path, content]) => {
       const fileContent = String(content || '');
-      console.log(`File: ${path}, Size: ${fileContent.length} bytes`);
+      const buffer = Buffer.from(fileContent, 'utf-8');
+      console.log(`File: ${path}, Chars: ${fileContent.length}, Bytes: ${buffer.byteLength}`);
       return {
         path: `/${path}`,
-        content: fileContent,
+        content: buffer,
       };
     });
     
