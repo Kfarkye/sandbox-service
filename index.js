@@ -47,6 +47,21 @@ app.post('/api/sandbox/create', async (req, res) => {
     
     console.log(`Detected project directory: ${projectDir}`);
 
+    // Add/update vite.config to allow all hosts
+    const viteConfigKey = Object.keys(files).find(k => k.includes('vite.config'));
+    if (viteConfigKey) {
+      const originalConfig = String(files[viteConfigKey] || '');
+      if (!originalConfig.includes('allowedHosts')) {
+        // Inject server config if not present
+        const injectedConfig = originalConfig.replace(
+          /export default defineConfig\({/,
+          `export default defineConfig({\n  server: { host: '0.0.0.0', strictPort: false, hmr: { clientPort: 443 } },`
+        );
+        files[viteConfigKey] = injectedConfig;
+        console.log('Injected Vite server config');
+      }
+    }
+
     const fileEntries = Object.entries(files).map(([path, content]) => {
       // Remove project directory prefix (e.g., "lane-kanban-subtasks/")
       const cleanPath = path.startsWith(`${projectDir}/`) 
@@ -78,7 +93,7 @@ app.post('/api/sandbox/create', async (req, res) => {
     console.log('Starting dev server...');
     sandbox.runCommand({
       cmd: 'sh',
-      args: ['-c', 'npm run dev'],
+      args: ['-c', 'npm run dev -- --host 0.0.0.0'],
     });
 
     await new Promise(resolve => setTimeout(resolve, 5000));
