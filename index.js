@@ -40,12 +40,24 @@ app.post('/api/sandbox/create', async (req, res) => {
 
     console.log('Sandbox created:', sandbox.id);
 
+    // Detect and remove common project directory prefix
+    const filePaths = Object.keys(files);
+    const firstPath = filePaths[0] || '';
+    const projectDir = firstPath.split('/')[0];
+    
+    console.log(`Detected project directory: ${projectDir}`);
+
     const fileEntries = Object.entries(files).map(([path, content]) => {
+      // Remove project directory prefix (e.g., "lane-kanban-subtasks/")
+      const cleanPath = path.startsWith(`${projectDir}/`) 
+        ? path.substring(projectDir.length + 1) 
+        : path;
+      
       const fileContent = String(content || '');
       const buffer = Buffer.from(fileContent, 'utf-8');
-      console.log(`File: ${path}, Chars: ${fileContent.length}, Bytes: ${buffer.byteLength}`);
+      console.log(`File: ${cleanPath}, Bytes: ${buffer.byteLength}`);
       return {
-        path: `/${path}`,
+        path: cleanPath,
         content: buffer,
       };
     });
@@ -53,12 +65,10 @@ app.post('/api/sandbox/create', async (req, res) => {
     console.log(`Writing ${fileEntries.length} files to sandbox...`);
     await sandbox.writeFiles(fileEntries);
 
-    const projectDir = Object.keys(files)[0]?.split('/')[0] || '';
-    
     console.log('Installing dependencies...');
     const installResult = await sandbox.runCommand({
       cmd: 'sh',
-      args: ['-c', `cd ${projectDir} && npm install`],
+      args: ['-c', 'npm install'],
     });
     
     if (installResult.exitCode !== 0) {
@@ -68,7 +78,7 @@ app.post('/api/sandbox/create', async (req, res) => {
     console.log('Starting dev server...');
     sandbox.runCommand({
       cmd: 'sh',
-      args: ['-c', `cd ${projectDir} && npm run dev`],
+      args: ['-c', 'npm run dev'],
     });
 
     await new Promise(resolve => setTimeout(resolve, 5000));
