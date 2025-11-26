@@ -12,7 +12,14 @@ app.post('/api/sandbox/create', async (req, res) => {
     
     console.log('Creating Vercel Sandbox...');
     
+    // Check for required token
+    const token = process.env.SANDBOX_VERCEL_TOKEN;
+    if (!token) {
+      throw new Error('SANDBOX_VERCEL_TOKEN environment variable is required');
+    }
+    
     const sandbox = await Sandbox.create({
+      token,
       timeout: 300000,
       ports: [3000, 5173, 8080],
       runtime: 'node22',
